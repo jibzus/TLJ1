@@ -6,11 +6,6 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
   Card,
   CardContent,
   CardHeader,
@@ -34,7 +29,6 @@ const ViewMemories: React.FC = () => {
   const router = useRouter();
   const [memories, setMemories] = useState<Memory[]>([]);
   const [sortBy, setSortBy] = useState<'created_at' | 'updated_at'>('created_at');
-  const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -85,14 +79,6 @@ const ViewMemories: React.FC = () => {
     setMemories(sortedMemories);
   };
 
-  const handleOpenModal = (memory: Memory) => {
-    setSelectedMemory(memory);
-  };
-
-  const handleCloseModal = () => {
-    setSelectedMemory(null);
-  };
-
   if (error) {
     return <div className="text-red-500">{error}</div>;
   }
@@ -122,50 +108,28 @@ const ViewMemories: React.FC = () => {
       ) : (
         <div className="grid gap-4 w-full">
           {memories.map((memory) => (
-            <Popover key={memory.id}>
-              <PopoverTrigger className="mb-4 cursor-pointer">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{memory.title}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="leading-7 mt-2 line-clamp-3">{memory.content}</p>
-                  </CardContent>
-                  <CardFooter>
-                    <p className="text-xs text-gray-500">
-                      Created: {new Date(memory.created_at).toLocaleString()}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Modified: {new Date(memory.updated_at).toLocaleString()}
-                    </p>
-                    <Button onClick={() => handleEditMemory(memory.id)} size="sm" className="mr-2">
-                      Edit
-                    </Button>
-                    <Button onClick={() => handleDeleteMemory(memory.id)} size="sm" variant="destructive">
-                      Delete
-                    </Button>
-                  </CardFooter>
-                </Card>
-              </PopoverTrigger>
-
-              <PopoverContent className="w-80">
-                <div className="p-4">
-                  <p className="leading-7">{memory.content}</p>
-                </div>
-                <div className="mt-4 flex justify-end space-x-2 px-2">
-                  <Button variant="outline" onClick={handleCloseModal}>
-                    Cancel 
-                  </Button>
-                  <Button 
-                    onClick={() => {
-                      handleEditMemory(memory.id); 
-                    }}
-                  >
-                    Modify
-                  </Button>
-                </div>
-              </PopoverContent>
-            </Popover>
+            <Card key={memory.id}>
+              <CardHeader>
+                <CardTitle>{memory.title}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="leading-7 mt-2">{memory.content}</p>
+              </CardContent>
+              <CardFooter>
+                <p className="text-xs text-gray-500">
+                  Created: {new Date(memory.created_at).toLocaleString()}
+                </p>
+                <p className="text-xs text-gray-500">
+                  Modified: {new Date(memory.updated_at).toLocaleString()}
+                </p>
+                <Button onClick={() => handleEditMemory(memory.id)} size="sm" className="mr-2">
+                  Edit
+                </Button>
+                <Button onClick={() => handleDeleteMemory(memory.id)} size="sm" variant="destructive">
+                  Delete
+                </Button>
+              </CardFooter>
+            </Card>
           ))}
         </div>
       )}
