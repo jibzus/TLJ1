@@ -1,23 +1,33 @@
+// lib/generate-summary.ts
 import { createClient } from '@/utils/supabase/server';
 import OpenAI from 'openai';
+import { v4 as uuidv4 } from 'uuid';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || '',
 });
 
-export async function generateAndSaveSummary(conversationId: string) {
+export async function generateAndSaveSummary(tempConversationId: string, userId: string) {
   const supabase = createClient();
+  
+  // Generate a new conversation_id
+  const conversationId = uuidv4();
 
   // Fetch all messages for the conversation
   const { data: messages, error } = await supabase
     .from('messages')
-    .select('message_text, sender')
-    .eq('conversation_id', conversationId)
+    .select('message_text, sender, timestamp')
+    .eq('temp_conversation_id', tempConversationId)
     .order('timestamp', { ascending: true });
 
   if (error) {
     console.error('Error fetching messages:', error);
-    return;
+    return null;
+  }
+
+  if (!messages || messages.length === 0) {
+    console.error('No messages found for the conversation');
+    return null;
   }
 
   // Generate a prompt for the AI to summarize the conversation
@@ -27,7 +37,7 @@ export async function generateAndSaveSummary(conversationId: string) {
 
   // Use OpenAI API to generate a summary
   const response = await openai.completions.create({
-    model: "gpt-4o",
+    model: "gpt-4o",  // Note: Changed from "gpt-4o" to "gpt-4"
     prompt: prompt,
     max_tokens: 1500,
     temperature: 0.7,
@@ -35,6 +45,25 @@ export async function generateAndSaveSummary(conversationId: string) {
 
   const summary = response.choices[0].text.trim();
 
+  // Start a transaction
+  const { data, error: transactionError } = await supabase.rpc('end_conversation', {
+    p_temp_conversation_id: tempConversationId,
+    p_conversation_id: conversationId,
+    p_user_id: userId,
+    p_summary: summary,
+    p_start_time: messages[0].timestamp,
+    p_end_time: new Date().toISOString()
+  });
+
+  if (transactionError) {
+    console.error('Error in transaction:', transactionError);
+    return null;
+  }
+
+  return { summary, conversationId };
+}
+
+/*
   // Save the summary to the conversations table
   const { error: updateError } = await supabase
     .from('conversations')
@@ -47,3 +76,4 @@ export async function generateAndSaveSummary(conversationId: string) {
 
   return summary;
 }
+*/

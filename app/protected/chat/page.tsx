@@ -1,3 +1,5 @@
+// app/protected/chat/page.tsx
+
 'use client';
 import React, { useEffect, useState } from 'react';
 import { useChat, Message } from 'ai/react';
@@ -8,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format, formatDistanceToNow } from 'date-fns';
 
 type ChatRole = 'user' | 'assistant' | 'system' | 'function' | 'data' | 'tool';
@@ -18,13 +21,22 @@ type Conversation = {
   timestamp: string;
 };
 
+type ConversationSummary = {
+  conversation_id: string;
+  start_time: string;
+  end_time: string;
+  summary: string | null | undefined;
+};
+
 export default function Chat() {
   const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [tempConversationId, setTempConversationId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [summaries, setSummaries] = useState<ConversationSummary[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('chats');
 
   const {
     messages,
@@ -52,6 +64,7 @@ export default function Chat() {
       if (user) {
         setUserId(user.id);
         await fetchConversations(supabaseInstance, user.id);
+        await fetchSummaries(supabaseInstance, user.id);
       } else {
         setError('No authenticated user found');
       }
@@ -86,6 +99,21 @@ export default function Chat() {
     setConversations(Object.values(groupedConversations));
   };
 
+  const fetchSummaries = async (supabase: SupabaseClient, userId: string) => {
+    const { data, error } = await supabase
+      .from('conversation_summaries')
+      .select('*')
+      .eq('user_id', userId)
+      .order('end_time', { ascending: false });
+
+    if (error) {
+      setError('Failed to fetch summaries');
+      return;
+    }
+
+    setSummaries(data);
+  };
+
   const saveMessage = async (role: ChatRole, content: string) => {
     if (!supabase || !userId || !tempConversationId) return;
 
@@ -100,7 +128,6 @@ export default function Chat() {
 
       if (error) throw error;
 
-      // Refresh conversations after saving a new message
       await fetchConversations(supabase, userId);
     } catch (error: any) {
       console.error('Error saving message:', error);
@@ -142,6 +169,53 @@ export default function Chat() {
     }
   };
 
+  const endAndJournalConvo = async () => {
+    if (!supabase || !userId || !tempConversationId) {
+      setError('Missing required data to end conversation');
+      return;
+
+    try {
+      const response = await fetch('/api/generate-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          tempConversationId: tempConversationId,
+          userId: userId 
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate summary');
+      }
+
+      const { summary, conversation_id } = await response.json();
+
+      // Save as a memory
+      const { error: memoryError } = await supabase
+        .from('memories')
+        .insert({
+          user_id: userId,
+          conversation_id: conversation_id,
+          title: `Journal Entry ${new Date().toLocaleDateString()}`,
+          content: summary,
+        });
+
+      if (memoryError) throw memoryError;
+
+      // Refresh summaries
+      await fetchSummaries(supabase, userId);
+
+      // Clear current conversation
+      setTempConversationId(null);
+      setMessages([]);
+      setSelectedConversation(null);
+
+    } catch (error: any) {
+      console.error('Error ending conversation:', error);
+      setError(`Failed to end conversation: ${error.message || 'Unknown error'}`);
+    }
+  };
+
   if (error) {
     return <div className="text-red-500 p-4">{error}</div>;
   }
@@ -150,32 +224,46 @@ export default function Chat() {
     <div className="flex h-screen bg-white dark:bg-zinc-800">
       <aside className="w-80 border-r dark:border-zinc-700">
         <div className="p-4 space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-bold">Messages</h2>
-            <Button size="icon" variant="ghost" onClick={() => { setTempConversationId(null); setMessages([]); }}>
-              <PencilIcon className="w-6 h-6" />
-            </Button>
-          </div>
-          <div className="relative">
-            <SearchIcon className="absolute left-2.5 top-3 h-4 w-4 text-zinc-500 dark:text-zinc-400" />
-            <Input className="pl-8" placeholder="Search messages..." type="search" />
-          </div>
-          <div className="space-y-2">
-            {conversations.map((conv) => (
-              <Card key={conv.temp_conversation_id} className="p-2 cursor-pointer" onClick={() => selectConversation(conv.temp_conversation_id)}>
-                <CardContent>
-                  <h3 className="font-semibold">{format(new Date(conv.timestamp), "do MMMM yyyy 'at' HH:mm")}</h3>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {formatDistanceToNow(new Date(conv.timestamp), { addSuffix: true })}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="chats">Chats</TabsTrigger>
+              <TabsTrigger value="summaries">Summaries</TabsTrigger>
+            </TabsList>
+            <TabsContent value="chats">
+              <div className="space-y-2">
+                {conversations.map((conv) => (
+                  <Card key={conv.temp_conversation_id} className="p-2 cursor-pointer" onClick={() => selectConversation(conv.temp_conversation_id)}>
+                    <CardContent>
+                      <h3 className="font-semibold">{format(new Date(conv.timestamp), "do MMMM yyyy 'at' HH:mm")}</h3>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        {formatDistanceToNow(new Date(conv.timestamp), { addSuffix: true })}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </TabsContent>
+            <TabsContent value="summaries">
+              <div className="space-y-2">
+                {summaries.map((summary) => (
+                  <Card key={summary.conversation_id} className="p-2">
+                    <CardContent>
+                      <h3 className="font-semibold">{format(new Date(summary.end_time), "do MMMM yyyy 'at' HH:mm")}</h3>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        {summary.summary 
+                          ? `${summary.summary.substring(0, 100)}...`
+                          : "No summary available"}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
       </aside>
       <section className="flex flex-col w-full">
-        <header className="border-b dark:border-zinc-700 p-4">
+        <header className="border-b dark:border-zinc-700 p-4 flex justify-between items-center">
           <h2 className="text-xl font-bold flex items-center gap-2">
             <Avatar className="relative overflow-visible w-10 h-10">
               <span className="absolute right-0 top-0 flex h-3 w-3 rounded-full bg-green-600" />
@@ -187,6 +275,7 @@ export default function Chat() {
               <span className="text-xs text-green-600 block">Online</span>
             </div>
           </h2>
+          <Button onClick={endAndJournalConvo}>End and Journal Convo</Button>
         </header>
         <main className="flex-1 overflow-auto p-4">
           <div className="space-y-4">
@@ -218,7 +307,6 @@ export default function Chat() {
   );
 }
 
-// ... (Icon components remain the same)
 function PencilIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -279,4 +367,5 @@ function SmileIcon(props: React.SVGProps<SVGSVGElement>) {
       <line x1="15" x2="15.01" y1="9" y2="9" />
     </svg>
   )
+}
 }
