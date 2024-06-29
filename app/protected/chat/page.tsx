@@ -1,12 +1,15 @@
 // app/protected/chat/page.tsx
 
 'use client';
+
 import React, { useEffect, useState } from 'react';
 import { useChat, Message } from 'ai/react';
 import { v4 as uuidv4 } from 'uuid';
 import { createClient } from '@/utils/supabase/client';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
+import { ChevronLeft} from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -37,6 +40,7 @@ export default function Chat() {
   const [summaries, setSummaries] = useState<ConversationSummary[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('chats');
+  const router = useRouter();
 
   const {
     messages,
@@ -100,18 +104,20 @@ export default function Chat() {
   };
 
   const fetchSummaries = async (supabase: SupabaseClient, userId: string) => {
-    const { data, error } = await supabase
-      .from('conversation_summaries')
-      .select('*')
-      .eq('user_id', userId)
-      .order('end_time', { ascending: false });
-
-    if (error) {
-      setError('Failed to fetch summaries');
-      return;
+    try {
+      const { data, error } = await supabase
+        .from('conversation_summaries')
+        .select('*')
+        .eq('user_id', userId)
+        .order('end_time', { ascending: false });
+  
+      if (error) throw error;
+  
+      setSummaries(data);
+    } catch (error: any) {
+      console.error('Error fetching summaries:', error);
+      setError(`Failed to fetch summaries: ${error.message || 'Unknown error'}`);
     }
-
-    setSummaries(data);
   };
 
   const saveMessage = async (role: ChatRole, content: string) => {
@@ -161,7 +167,7 @@ export default function Chat() {
         return;
       }
 
-      setMessages(data.map(msg => ({
+      setMessages(data.map((msg: { id: string; sender: ChatRole; message_text: string }) => ({
         id: msg.id,
         role: msg.sender as ChatRole,
         content: msg.message_text,
@@ -173,7 +179,7 @@ export default function Chat() {
     if (!supabase || !userId || !tempConversationId) {
       setError('Missing required data to end conversation');
       return;
-
+    }
     try {
       const response = await fetch('/api/generate-summary', {
         method: 'POST',
@@ -221,6 +227,13 @@ export default function Chat() {
   }
 
   return (
+    <div>
+    <Button
+          onClick={() => router.push('/protected')}
+          className="rounded-full p-2 bg-white text-gray-600 hover:bg-gray-200"
+        >
+          <ChevronLeft size={24} />
+        </Button>
     <div className="flex h-screen bg-white dark:bg-zinc-800">
       <aside className="w-80 border-r dark:border-zinc-700">
         <div className="p-4 space-y-4">
@@ -231,7 +244,7 @@ export default function Chat() {
             </TabsList>
             <TabsContent value="chats">
               <div className="space-y-2">
-                {conversations.map((conv) => (
+                {conversations.map((conv: Conversation) => (
                   <Card key={conv.temp_conversation_id} className="p-2 cursor-pointer" onClick={() => selectConversation(conv.temp_conversation_id)}>
                     <CardContent>
                       <h3 className="font-semibold">{format(new Date(conv.timestamp), "do MMMM yyyy 'at' HH:mm")}</h3>
@@ -245,7 +258,7 @@ export default function Chat() {
             </TabsContent>
             <TabsContent value="summaries">
               <div className="space-y-2">
-                {summaries.map((summary) => (
+                {summaries.map((summary: ConversationSummary) => (
                   <Card key={summary.conversation_id} className="p-2">
                     <CardContent>
                       <h3 className="font-semibold">{format(new Date(summary.end_time), "do MMMM yyyy 'at' HH:mm")}</h3>
@@ -303,6 +316,7 @@ export default function Chat() {
           </form>
         </footer>
       </section>
+    </div>
     </div>
   );
 }
@@ -367,5 +381,4 @@ function SmileIcon(props: React.SVGProps<SVGSVGElement>) {
       <line x1="15" x2="15.01" y1="9" y2="9" />
     </svg>
   )
-}
 }
