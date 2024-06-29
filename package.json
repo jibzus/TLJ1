@@ -26,6 +26,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
     "diff-match-patch": "^1.0.5",
+    "framer-motion": "^11.2.12",
     "geist": "^1.2.1",
     "link": "^2.1.1",
     "lucide-react": "^0.395.0",

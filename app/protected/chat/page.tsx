@@ -16,6 +16,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format, formatDistanceToNow } from 'date-fns';
 
+
 type ChatRole = 'user' | 'assistant' | 'system' | 'function' | 'data' | 'tool';
 
 type Conversation = {
