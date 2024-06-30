@@ -44,7 +44,15 @@ export async function generateAndSaveSummary(tempConversationId: string, userId:
       temperature: 0.7,
     });
 
-    const summary = response.choices[0].message.content.trim();
+    if (!response.choices || response.choices.length === 0) {
+      throw new Error('No choices returned from OpenAI');
+    }
+
+    const summary = response.choices[0].message?.content?.trim();
+
+    if (!summary) {
+      throw new Error('Summary generation failed');
+    }
 
     // Start a transaction
     const { data, error: transactionError } = await supabase.rpc('end_conversation', {

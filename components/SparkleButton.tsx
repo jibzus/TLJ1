@@ -1,7 +1,11 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
 
-const SparkleButton = ({ onClick }) => (
+interface SparkleButtonProps {
+  onClick: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
+}
+
+const SparkleButton: React.FC<SparkleButtonProps> = ({ onClick }) => (
   <Button onClick={onClick} className="p-0 bg-transparent hover:bg-transparent">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="24" height="24">
       <style>
