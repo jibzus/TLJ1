@@ -15,10 +15,10 @@ export const getMemory = async (id: string) => {
   return data;
 };
 
-export const createMemory = async (title: string, content: string, userId: string) => {
+export const createMemory = async (title: string, content: string, userId: string, imageUrl: string) => {
   const { data, error } = await supabase
     .from('memories')
-    .insert([{ title, content, user_id: userId }])
+    .insert([{ title, content, user_id: userId, image_url: imageUrl }])
     .select()
     .single();
 

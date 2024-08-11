@@ -281,7 +281,7 @@ export default function Chat() {
           <h2 className="text-xl font-bold flex items-center gap-2">
             <Avatar className="relative overflow-visible w-10 h-10">
               <span className="absolute right-0 top-0 flex h-3 w-3 rounded-full bg-green-600" />
-              <AvatarImage src="/placeholder-user.jpg" />
+              <AvatarImage src="/placeholder-ai.jpg" />
               <AvatarFallback>AI</AvatarFallback>
             </Avatar>
             <div>

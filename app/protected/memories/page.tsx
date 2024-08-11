@@ -2,10 +2,9 @@
 //New Memory 
 
 'use client';
-
 import { useRouter } from 'next/navigation';
-import React, { useState } from 'react';
-import { ChevronLeft, ImageIcon, Mic } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { ChevronLeft, ImageIcon, Mic, X } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,6 +24,25 @@ const NewMemory: React.FC = () => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [error, setError] = useState('');
+  const [image, setImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setImage(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setImage(null);
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   const handleSaveMemory = async () => {
     if (!title.trim() || !content.trim()) {
@@ -35,7 +53,6 @@ const NewMemory: React.FC = () => {
     try {
       const supabase = createClient();
       
-      // Fetch user information and handle potential errors
       const { data: userData, error: userError } = await supabase.auth.getUser();
       
       if (userError) {
@@ -44,17 +61,37 @@ const NewMemory: React.FC = () => {
         return;
       }
 
-      console.log('Fetched user data:', userData);
-
       if (!userData?.user) {
         console.error('User is null or undefined:', userData?.user);
         setError('User not authenticated');
         return;
       }
 
-      await createMemory(title, content, userData.user.id);
+      let imageUrl = null;
+      if (image) {
+        const fileName = `${userData.user.id}/${Date.now()}_${image.name}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('memory_images')
+          .upload(fileName, image);
+
+        if (uploadError) {
+          console.error('Error uploading image:', uploadError);
+          setError('Failed to upload image');
+          return;
+        }
+
+        const { data: urlData } = supabase.storage
+          .from('memory_images')
+          .getPublicUrl(fileName);
+
+        imageUrl = urlData.publicUrl;
+      }
+
+      await createMemory(title, content, userData.user.id, imageUrl);
       setTitle('');
       setContent('');
+      setImage(null);
+      setImagePreview(null);
       setError('');
       router.push('/protected/');
     } catch (err) {
@@ -98,6 +135,18 @@ const NewMemory: React.FC = () => {
             className="w-full h-64 rounded-lg border p-3 shadow-sm resize-none"
           />
 
+          {imagePreview && (
+            <div className="relative">
+              <img src={imagePreview} alt="Preview" className="max-w-full h-auto rounded-lg" />
+              <Button
+                onClick={handleRemoveImage}
+                className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1"
+              >
+                <X size={20} />
+              </Button>
+            </div>
+          )}
+
           {error && <p className="text-red-500">{error}</p>}
 
           <Button
@@ -109,8 +158,15 @@ const NewMemory: React.FC = () => {
         </CardContent>
 
         <CardFooter className="mt-8 pt-6 border-t border-gray-200 flex justify-center items-center gap-6">
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleImageChange}
+            className="hidden"
+            ref={fileInputRef}
+          />
           <Button
-            onClick={() => alert('Add image functionality to be implemented')}
+            onClick={() => fileInputRef.current?.click()}
             className="flex items-center rounded-full p-3 hover:bg-gray-100"
           >
             <ImageIcon size={24} />
