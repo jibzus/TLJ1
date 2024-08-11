@@ -15,7 +15,7 @@ export const getMemory = async (id: string) => {
   return data;
 };
 
-export const createMemory = async (title: string, content: string, userId: string, imageUrl: string | null) => {
+export const createMemory = async (title: string, content: string, userId: string, imageUrl?: string) => {
   const { data, error } = await supabase
     .from('memories')
     .insert([{ title, content, user_id: userId, image_url: imageUrl }])
@@ -26,7 +26,7 @@ export const createMemory = async (title: string, content: string, userId: strin
   return data;
 };
 
-export const updateMemory = async (id: string, title: string, content: string, imageUrl: string | null) => {
+export const updateMemory = async (id: string, title: string, content: string, imageUrl?: string) => {
   const { data, error } = await supabase
     .from('memories')
     .update({ title, content, image_url: imageUrl, updated_at: new Date().toISOString() })

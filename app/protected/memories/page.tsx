@@ -67,7 +67,7 @@ const NewMemory: React.FC = () => {
         return;
       }
 
-      let imageUrl = null;
+      let imageUrl: string | undefined = undefined;;
       if (image) {
         const fileName = `${userData.user.id}/${Date.now()}_${image.name}`;
         const { data: uploadData, error: uploadError } = await supabase.storage

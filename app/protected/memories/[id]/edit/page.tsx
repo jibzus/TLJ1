@@ -28,8 +28,8 @@ const EditMemory: React.FC = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [image, setImage] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | undefined>(undefined);
+  const [currentImageUrl, setCurrentImageUrl] = useState<string | undefined>(undefined);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -77,8 +77,8 @@ const EditMemory: React.FC = () => {
 
   const handleRemoveImage = () => {
     setImage(null);
-    setImagePreview(null);
-    setCurrentImageUrl(null);
+    setImagePreview(undefined);
+    setCurrentImageUrl(undefined);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -102,7 +102,7 @@ const EditMemory: React.FC = () => {
         return;
       }
 
-      let imageUrl = currentImageUrl;
+      let imageUrl: string | undefined = currentImageUrl;
       if (image) {
         const fileName = `${userData.user.id}/${Date.now()}_${image.name}`;
         const { data: uploadData, error: uploadError } = await supabase.storage
